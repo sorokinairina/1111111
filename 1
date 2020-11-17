@@ -1,0 +1,168 @@
+Для начала подключим библиотеки, которые нам понадобятся.
+
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+Загрузим данные в наш ноутбук. 
+
+data = pd.read_csv('zoo.csv'  , sep=',')
+# Посмотрим первые 10 записей из набора данных
+data.head(10)
+
+data.info()
+
+Этот набор данных - список животных и их признаков (наличие шерсти, когтей, хвотса и т.д.). Будем предсказывать значение переменной hair, которая означает, есть ли у животного шерсть. Эта задача - задача бинарной классификации. 
+
+В нашей выборке есть признаки "class_type" (порядковый номер класса) и "catsize" (размер животных больше кошки). Очевидно, они нам не понадобятся. Выбросим их из выборки:
+
+data = data.drop(['class_type', 'catsize'], axis='columns') # первый аргумент - список ненужных признаков,
+                                                   # второй - поиск имен признаков по названиям колонок, а не строк
+
+Посмотрим таблицу и убедимся, что ненужные нам колонки убрались 
+
+data.info()
+
+Посмотрим, можем ли мы выбросить еще какие-нибудь признаки из нашей таблицы. Это стоит делать, поскольку чем меньше признаков - тем легче вычислять расстояние между объектами, то есть алгоритм будет работать быстрее. Посмотрим на корреляцию признаков между собой. Построим графическое представление модуля значения корреляции попарно между признаками.
+
+# Картинку отрисуем с помощью библиотеки seaborn
+import seaborn as sns
+# Подсчитаем корреляцию и возьмем модуль от нее
+corr = data.corr().abs()
+# Следующая команда устанавливает размер картинки (по умолчанию она довольно маленькая)
+sns.set(rc={'figure.figsize':(12, 14)})
+# Нарисуем картинку
+sns.heatmap(corr, 
+            xticklabels=corr.columns.values,
+            yticklabels=corr.columns.values)
+
+Другой варинат представления корреляции
+
+import seaborn as sns
+def plot_correlation_map(data):
+    corr=data.corr().abs()
+    _ , ax=plt.subplots(figsize=(14,12))
+    cmap=sns.diverging_palette(220,10,as_cmap=True)
+    _=sns.heatmap(
+        corr,
+        cmap=cmap,
+        square=True,
+        cbar_kws={'shrink':.9},
+        ax=ax,
+        annot=True,
+        annot_kws={'fontsize':8}
+    )
+plot_correlation_map(data)
+
+корреляция с целевой переменной, но числами
+
+correlations_data = data.corr()['hair'].sort_values()
+print(correlations_data)
+
+Удалим из выборки признаки, высоко коррелирующие с другими признаками 
+
+data = data.drop(['milk','tail','airborne', 'aquatic', 'fins', 'eggs','toothed'], axis='columns')
+
+Посмотрим какие признаки остались
+
+data.info()
+
+Посмотрим их корреляцию как вышеприведенная картинка (аналогично)
+
+# Картинку отрисуем с помощью библиотеки seaborn
+import seaborn as sns
+# Подсчитаем корреляцию и возьмем модуль от нее
+corr = data.corr().abs()
+# Следующая команда устанавливает размер картинки (по умолчанию она довольно маленькая)
+sns.set(rc={'figure.figsize':(12, 14)})
+# Нарисуем картинку
+sns.heatmap(corr, 
+            xticklabels=corr.columns.values,
+            yticklabels=corr.columns.values)
+
+plot_correlation_map(data)
+
+Вот такие признаки остались после прореживания
+
+data.head()
+
+Посмотрим какой тип переменных у наших колонок
+
+data.dtypes
+
+У нас одна текстовая колонка с названием животного. Для нашей задачи бинарной классификации: "Имеет ли животное шерсть?" название животного роли не играет, поэтому эту колонку тоже удаляем.
+
+data = data.drop(['animal_name'], axis='columns')
+
+Остались все признаки, которые имеют числовое значение.
+
+data.dtypes
+
+Посмотрим есть ли у нас пустые значения?
+
+data.isna().any()
+
+Пустых значений нет
+
+# Теперь Machine Learning
+
+
+Выделим в нашей выборке целевую переменную, а также разделим ее на тренировочную и тестовую. Цель построения модели - классифицировать новые данные. По умолчанию,train_test_split откладывает 25% выборок в исходном наборе данных для тестирования.
+
+X = data[data.columns[1:]]
+y = data['hair']
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y,test_size = 0.3)
+                                                    
+
+#количество элементов в выборках
+print(X_train.shape)
+print(y_train.shape)
+print(X_test.shape)
+print(y_test.shape)
+
+ Будем проводить классификацию сначала с помощью метода ближайших соседей.
+
+# импортируем класс классификатора по ближайшим соседям
+from sklearn.neighbors import KNeighborsClassifier
+
+# создадим наш классификатор. Гиперпараметр у этого алгоритма один - количество соседей.
+clf = KNeighborsClassifier(n_neighbors=5)
+# обучим классификатор на тренировочной выборке
+clf.fit(X_train, y_train)
+# подсчитаем долю верных ответов алгоритма на тестовой выборке.
+clf.score(X_test, y_test)
+
+Посмотрим, как влияет гиперпараметр на качество классификации.
+
+# Создадим пустой словарь. Будем добавлять в него значения наших "скоров". Ключами будет значение гиперпараметра,
+# значениями - качество работы. Рассмотрим отдельно качество на тренировочной выборке и на тестовой.
+train_scores = {}
+test_scores = {}
+
+# для n в диапазоне от 1 до 40 включительно
+for n in range(1, 41):
+    clf = KNeighborsClassifier(n_neighbors=n)
+    clf.fit(X_train, y_train)
+    # значение качества на текущей итерации:
+    current_train_score = clf.score(X_train, y_train)
+    current_test_score = clf.score(X_test, y_test)
+    # запишем его в наши словари
+    train_scores[n] = current_train_score
+    test_scores[n] = current_test_score
+
+# нарисуем графики
+
+plt.plot(list(train_scores.keys()), list(train_scores.values()), label='Обучающая выборка')
+plt.plot(list(test_scores.keys()), list(test_scores.values()), label='Тестовая выборка')
+plt.xlabel('Количество соседей')
+plt.ylabel('Доля верных ответов')
+plt.legend()
+plt.show()
+
+В соответствии с графиком, лучше всего брать гиперпараметр=5.
+
